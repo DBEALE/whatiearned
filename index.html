@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lifetime Earnings Calculator</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0d1117; --surface: #161b22; --border: #30363d;
+      --text: #c9d1d9; --dim: #8b949e; --bright: #f0f6fc;
+      --accent: #388bfd; --accent-bg: #0d2340;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg); color: var(--text);
+      min-height: 100vh; padding: 24px clamp(12px, 4vw, 40px);
+      max-width: 1200px; margin: 0 auto;
+    }
+    h1 { font-size: clamp(1.2rem, 2.5vw, 1.7rem); font-weight: 700; color: var(--bright); }
+    .sub { color: var(--dim); font-size: 0.85rem; margin: 4px 0 20px; }
+    .controls {
+      display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end;
+      margin-bottom: 14px; padding: 14px 16px;
+      background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+    }
+    .ctrl { display: flex; flex-direction: column; gap: 4px; }
+    label { font-size: 0.68rem; color: var(--dim); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; }
+    input[type=number], select {
+      background: var(--bg); border: 1px solid var(--border);
+      color: var(--bright); padding: 6px 10px; border-radius: 6px; font-size: 0.875rem; outline: none;
+    }
+    input[type=number] { width: 100px; }
+    select { width: 155px; cursor: pointer; }
+    input[type=number]:focus, select:focus { border-color: var(--accent); }
+    .btn {
+      padding: 6px 14px; background: var(--surface); border: 1px solid var(--border);
+      color: var(--text); border-radius: 6px; cursor: pointer; font-size: 0.85rem; align-self: flex-end;
+    }
+    .btn:hover { background: var(--border); color: var(--bright); }
+    .btn-danger:hover { background: #3d1a1a; border-color: #f85149; color: #f85149; }
+    .save-bar {
+      display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+      margin-bottom: 14px; padding: 10px 14px;
+      background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+      font-size: 0.82rem;
+    }
+    .save-bar-label { color: var(--dim); font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; margin-right: 2px; }
+    #saveName {
+      background: var(--bg); border: 1px solid var(--border); color: var(--bright);
+      padding: 5px 10px; border-radius: 6px; font-size: 0.85rem; outline: none; width: 180px;
+    }
+    #saveName:focus { border-color: var(--accent); }
+    #loadSelect {
+      background: var(--bg); border: 1px solid var(--border); color: var(--bright);
+      padding: 5px 10px; border-radius: 6px; font-size: 0.85rem; cursor: pointer; outline: none;
+    }
+    .save-sep { color: var(--border); margin: 0 4px; }
+    #saveMsg { font-size: 0.78rem; margin-left: 4px; min-width: 140px; }
+    .chart-wrap {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; padding: 14px; margin-bottom: 14px;
+    }
+    .chart-hint { font-size: 0.7rem; color: #484f58; text-align: center; margin-bottom: 6px; }
+    svg#chart { width: 100%; display: block; touch-action: none; user-select: none; cursor: crosshair; }
+    .results { display: grid; grid-template-columns: repeat(auto-fit, minmax(165px, 1fr)); gap: 12px; margin-bottom: 14px; }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; }
+    .card.accent { border-color: var(--accent); background: var(--accent-bg); }
+    .card-label { font-size: 0.67rem; color: var(--dim); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px; }
+    .card-value { font-size: 1.6rem; font-weight: 700; color: var(--bright); line-height: 1; }
+    .card.accent .card-value { color: #79b8ff; }
+    .card-note { font-size: 0.7rem; color: #484f58; margin-top: 4px; }
+    .footer-note { font-size: 0.7rem; color: #484f58; text-align: center; padding-top: 4px; }
+    #tt {
+      position: fixed; pointer-events: none; display: none; z-index: 999;
+      background: #1c2128; border: 1px solid var(--accent); border-radius: 6px;
+      padding: 8px 12px; font-size: 0.78rem; color: var(--text); line-height: 1.6; white-space: nowrap;
+    }
+    #tt strong { color: var(--bright); }
+    #tt .tr { color: #79b8ff; }
+    #tt .tn { color: #e3b341; }
+    /* Tax toggle */
+    .tax-toggle { display: flex; flex-direction: column; gap: 4px; }
+    .toggle-row { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+    .toggle-row input[type=checkbox] { display: none; }
+    .toggle-track {
+      width: 36px; height: 20px; border-radius: 10px;
+      background: var(--border); position: relative; transition: background 0.2s; flex-shrink: 0;
+    }
+    .toggle-track::after {
+      content: ''; position: absolute; left: 3px; top: 3px;
+      width: 14px; height: 14px; border-radius: 50%;
+      background: #fff; transition: transform 0.2s;
+    }
+    input[type=checkbox]:checked + .toggle-track { background: var(--accent); }
+    input[type=checkbox]:checked + .toggle-track::after { transform: translateX(16px); }
+    .toggle-label { font-size: 0.8rem; color: var(--text); font-weight: 400; text-transform: none; letter-spacing: 0; }
+    .tax-note { font-size: 0.65rem; color: #484f58; }
+  </style>
+</head>
+<body>
+
+<h1>Lifetime Earnings Calculator</h1>
+<p class="sub">Draw your income across your career — see what you actually earned in today's money after inflation.</p>
+
+<div class="controls">
+  <div class="ctrl">
+    <label>Start Year</label>
+    <input type="number" id="startYear" value="1990" min="1960" max="2025" step="1">
+  </div>
+  <div class="ctrl">
+    <label>Currency</label>
+    <select id="currency">
+      <option value="GBP">£ GBP (UK)</option>
+      <option value="USD">$ USD (US)</option>
+    </select>
+  </div>
+  <div class="ctrl">
+    <label>Income Scale</label>
+    <select id="maxIncome">
+      <option value="50000">50,000</option>
+      <option value="100000" selected>100,000</option>
+      <option value="150000">150,000</option>
+      <option value="200000">200,000</option>
+      <option value="300000">300,000</option>
+      <option value="500000">500,000</option>
+    </select>
+  </div>
+  <div class="tax-toggle">
+    <label class="toggle-row" for="taxToggle">
+      <input type="checkbox" id="taxToggle">
+      <span class="toggle-track"></span>
+      <span class="toggle-label">Deduct approx. tax</span>
+    </label>
+    <span class="tax-note" id="taxNote">UK income tax + NI (2024/25 rates)</span>
+  </div>
+  <button class="btn" id="resetBtn">↺ Reset</button>
+</div>
+
+<div class="save-bar">
+  <span class="save-bar-label">Save</span>
+  <input type="text" id="saveName" placeholder="Profile name…" maxlength="60" autocomplete="off">
+  <button class="btn" id="saveBtn">Save</button>
+  <span class="save-sep">|</span>
+  <span class="save-bar-label">Load</span>
+  <select id="loadSelect"><option value="">— saved profiles —</option></select>
+  <button class="btn" id="loadBtn">Load</button>
+  <button class="btn btn-danger" id="deleteBtn">Delete</button>
+  <span id="saveMsg"></span>
+</div>
+
+<div class="chart-wrap">
+  <p class="chart-hint">Click and drag on the chart to draw your annual gross income &nbsp;|&nbsp; Hover for year details</p>
+  <svg id="chart" viewBox="0 0 1000 340" aria-label="Lifetime income chart"></svg>
+</div>
+
+<div class="results">
+  <div class="card">
+    <div class="card-label" id="l-nominal">Total Gross Earnings</div>
+    <div class="card-value" id="r-nominal">—</div>
+    <div class="card-note" id="n-nominal">Actual pay received (gross)</div>
+  </div>
+  <div class="card accent">
+    <div class="card-label" id="l-real">Total in Today's Money</div>
+    <div class="card-value" id="r-real">—</div>
+    <div class="card-note" id="n-real">Inflation-adjusted to 2026</div>
+  </div>
+  <div class="card">
+    <div class="card-label" id="l-tax">Inflation Added</div>
+    <div class="card-value" id="r-tax">—</div>
+    <div class="card-note" id="n-tax">Real vs nominal difference</div>
+  </div>
+  <div class="card">
+    <div class="card-label" id="l-avg">Avg Year (Real)</div>
+    <div class="card-value" id="r-avg">—</div>
+    <div class="card-note" id="n-avg">Per working year, today's money</div>
+  </div>
+</div>
+
+<p class="footer-note">UK CPI data: ONS &nbsp;|&nbsp; US CPI data: BLS &nbsp;|&nbsp; Inflation figures are approximate and for illustrative purposes</p>
+
+<div id="tt">
+  <strong id="tt-year">—</strong><br>
+  <span id="tt-nom">Gross: —</span><br>
+  <span class="tn" id="tt-net" style="display:none">Net (after tax): —</span><br>
+  <span class="tr" id="tt-real">Today's value: —</span>
+</div>
+
+<script>
+// ── Inflation Rates (annual CPI %) ──────────────────────────────────────────
+const RATES = {
+  GBP: {
+    1960:1.0,1961:3.4,1962:4.2,1963:2.0,1964:3.3,1965:4.8,1966:3.9,1967:2.5,1968:4.7,1969:5.5,
+    1970:6.4,1971:9.4,1972:7.1,1973:9.2,1974:16.1,1975:24.2,1976:16.5,1977:15.8,1978:8.3,1979:13.4,
+    1980:18.0,1981:11.9,1982:8.6,1983:4.6,1984:5.0,1985:6.1,1986:3.4,1987:4.2,1988:4.9,1989:7.8,
+    1990:9.5,1991:5.9,1992:3.7,1993:1.6,1994:2.4,1995:3.5,1996:2.4,1997:1.8,1998:1.6,1999:1.3,
+    2000:0.8,2001:1.2,2002:1.3,2003:1.4,2004:1.3,2005:2.1,2006:2.3,2007:2.3,2008:3.6,2009:2.2,
+    2010:3.3,2011:4.5,2012:2.8,2013:2.6,2014:1.5,2015:0.0,2016:0.7,2017:2.7,2018:2.5,2019:1.8,
+    2020:0.9,2021:2.5,2022:9.1,2023:7.3,2024:2.5,2025:3.5
+  },
+  USD: {
+    1960:1.5,1961:1.1,1962:1.2,1963:1.2,1964:1.3,1965:1.6,1966:2.9,1967:3.1,1968:4.2,1969:5.5,
+    1970:5.7,1971:4.4,1972:3.2,1973:6.2,1974:11.0,1975:9.1,1976:5.8,1977:6.5,1978:7.6,1979:11.3,
+    1980:13.5,1981:10.3,1982:6.1,1983:3.2,1984:4.3,1985:3.6,1986:1.9,1987:3.6,1988:4.1,1989:4.8,
+    1990:5.4,1991:4.2,1992:3.0,1993:3.0,1994:2.6,1995:2.8,1996:3.0,1997:2.3,1998:1.6,1999:2.2,
+    2000:3.4,2001:2.8,2002:1.6,2003:2.3,2004:2.7,2005:3.4,2006:3.2,2007:2.9,2008:3.8,2009:-0.4,
+    2010:1.6,2011:3.2,2012:2.1,2013:1.5,2014:1.6,2015:0.1,2016:1.3,2017:2.1,2018:2.4,2019:1.8,
+    2020:1.2,2021:4.7,2022:8.0,2023:4.1,2024:2.9,2025:3.0
+  }
+};
+
+// ── Tax Calculations (approximate current rates, single/standard filer) ─────
+function calcTaxGBP(gross) {
+  // Income tax: 2024/25 bands
+  let pa = 12570;
+  if (gross > 100000) pa = Math.max(0, 12570 - (gross - 100000) / 2);
+  const taxable = Math.max(0, gross - pa);
+  const b1 = Math.min(taxable, 37700);               // basic  20%
+  const b2 = Math.min(Math.max(taxable - 37700, 0), 74870); // higher 40%
+  const b3 = Math.max(taxable - 112570, 0);          // additional 45%
+  const incomeTax = b1 * 0.20 + b2 * 0.40 + b3 * 0.45;
+  // Employee NI
+  let ni = 0;
+  if (gross > 12570) {
+    ni += Math.min(gross - 12570, 37700) * 0.08;
+    if (gross > 50270) ni += (gross - 50270) * 0.02;
+  }
+  return incomeTax + ni;
+}
+
+function calcTaxUSD(gross) {
+  // Federal income tax 2024, single filer
+  const std = 14600;
+  const taxable = Math.max(0, gross - std);
+  const brackets = [[11600,0.10],[35550,0.12],[53375,0.22],[91425,0.24],[51775,0.32],[365625,0.35],[Infinity,0.37]];
+  let tax = 0, rem = taxable;
+  for (const [band, rate] of brackets) {
+    const t = Math.min(rem, band);
+    tax += t * rate; rem -= t;
+    if (rem <= 0) break;
+  }
+  // FICA: Social Security 6.2% (cap $168,600) + Medicare 1.45% + 0.9% above $200k
+  const ss       = Math.min(gross, 168600) * 0.062;
+  const medicare = gross * 0.0145 + Math.max(0, gross - 200000) * 0.009;
+  return tax + ss + medicare;
+}
+
+function calcTax(gross) {
+  return currency === 'GBP' ? calcTaxGBP(gross) : calcTaxUSD(gross);
+}
+
+function taxOn() { return document.getElementById('taxToggle').checked; }
+
+// ── Constants ───────────────────────────────────────────────────────────────
+const TODAY = 2026;
+const W = 1000, H = 340;
+const P = { t: 22, r: 18, b: 48, l: 76 };
+const CW = W - P.l - P.r;
+const CH = H - P.t - P.b;
+const NS = 'http://www.w3.org/2000/svg';
+const SVG = document.getElementById('chart');
+const TT  = document.getElementById('tt');
+
+// ── State ───────────────────────────────────────────────────────────────────
+let startYear  = 1990;
+let currency   = 'GBP';
+let maxIncome  = 100000;
+let incomes    = {};  // year → nominal income
+let mults      = {};  // year → multiplier to TODAY
+let dragging   = false;
+let prevDrag   = null; // {year, inc} for interpolation across years
+
+// ── Multiplier computation ───────────────────────────────────────────────────
+function buildMults(cur) {
+  const rates = RATES[cur];
+  const m = {};
+  for (let y = 1960; y <= TODAY; y++) {
+    let acc = 1.0;
+    for (let fy = y + 1; fy <= TODAY; fy++) acc *= 1 + (rates[fy] ?? 2.5) / 100;
+    m[y] = acc;
+  }
+  return m;
+}
+
+// ── Year helpers ─────────────────────────────────────────────────────────────
+function getYears() {
+  const yrs = [];
+  for (let y = startYear; y < TODAY; y++) yrs.push(y);
+  return yrs;
+}
+
+function defaultCurve() {
+  incomes = {};
+  const yrs = getYears();
+  yrs.forEach((y, i) => {
+    const t = i / Math.max(1, yrs.length - 1);
+    incomes[y] = 22000 + t * 28000; // 22k → 50k rising curve
+  });
+}
+
+// ── Coordinate transforms ────────────────────────────────────────────────────
+function xOf(year) {
+  const span = (TODAY - 1) - startYear;
+  if (span <= 0) return P.l + CW / 2;
+  return P.l + ((year - startYear) / span) * CW;
+}
+function yOf(inc) {
+  return P.t + CH * (1 - Math.max(0, Math.min(1, inc / maxIncome)));
+}
+function yearOf(x) {
+  const span = (TODAY - 1) - startYear;
+  if (span <= 0) return startYear;
+  const t = (x - P.l) / CW;
+  return Math.round(Math.max(startYear, Math.min(TODAY - 1, startYear + t * span)));
+}
+function incOf(y) {
+  const t = 1 - (y - P.t) / CH;
+  return Math.max(0, Math.min(maxIncome, t * maxIncome));
+}
+
+// ── SVG helpers ───────────────────────────────────────────────────────────────
+function el(tag, attrs = {}) {
+  const e = document.createElementNS(NS, tag);
+  for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+  return e;
+}
+function tx(str, x, y, attrs = {}) {
+  const e = el('text', { x, y, ...attrs });
+  e.textContent = str;
+  return e;
+}
+
+// ── Formatting ────────────────────────────────────────────────────────────────
+function sym() { return currency === 'GBP' ? '£' : '$'; }
+function fmtShort(n) {
+  const s = sym();
+  if (n >= 1e6) return s + (n / 1e6).toFixed(2) + 'm';
+  if (n >= 1000) return s + (n / 1000).toFixed(0) + 'k';
+  return s + Math.round(n);
+}
+function fmtFull(n) {
+  return sym() + Math.round(n).toLocaleString('en-GB');
+}
+
+// ── Draw chart ────────────────────────────────────────────────────────────────
+function draw() {
+  SVG.innerHTML = '';
+  const yrs = getYears();
+  if (yrs.length === 0) return;
+
+  // Defs: area gradient + clip
+  const defs = el('defs');
+  const grad = el('linearGradient', { id: 'ag', x1: '0', y1: '0', x2: '0', y2: '1' });
+  const s1 = el('stop', { offset: '0%', 'stop-color': '#388bfd', 'stop-opacity': '0.38' });
+  const s2 = el('stop', { offset: '100%', 'stop-color': '#388bfd', 'stop-opacity': '0.03' });
+  grad.appendChild(s1); grad.appendChild(s2); defs.appendChild(grad);
+  const clip = el('clipPath', { id: 'cp' });
+  clip.appendChild(el('rect', { x: P.l, y: P.t, width: CW, height: CH }));
+  defs.appendChild(clip);
+  SVG.appendChild(defs);
+
+  // Chart background
+  SVG.appendChild(el('rect', { x: P.l, y: P.t, width: CW, height: CH, fill: '#0d1117', rx: '3' }));
+
+  // Grid
+  const gridG = el('g');
+  [0, 0.25, 0.5, 0.75, 1].forEach(t => {
+    const inc = t * maxIncome;
+    const yy  = yOf(inc);
+    gridG.appendChild(el('line', { x1: P.l, y1: yy, x2: P.l + CW, y2: yy, stroke: '#21262d', 'stroke-width': '1' }));
+    gridG.appendChild(tx(fmtShort(inc), P.l - 6, yy + 4,
+      { 'text-anchor': 'end', fill: '#8b949e', 'font-size': '11', 'font-family': 'monospace' }));
+  });
+
+  const span = (TODAY - 1) - startYear;
+  const xStep = span <= 15 ? 2 : span <= 30 ? 5 : 10;
+  yrs.forEach(y => {
+    if ((y - startYear) % xStep !== 0 && y !== TODAY - 1 && y !== startYear) return;
+    const xx = xOf(y);
+    gridG.appendChild(el('line', { x1: xx, y1: P.t, x2: xx, y2: P.t + CH, stroke: '#21262d', 'stroke-width': '1', 'stroke-dasharray': '3,3' }));
+    gridG.appendChild(tx(String(y), xx, P.t + CH + 16, { 'text-anchor': 'middle', fill: '#8b949e', 'font-size': '11' }));
+  });
+  SVG.appendChild(gridG);
+
+  // Area
+  const pts = yrs.map(y => [xOf(y), yOf(incomes[y] ?? 0)]);
+  const baseY = yOf(0);
+  const areaD = `M ${P.l},${baseY} ` + pts.map(([x, y]) => `L ${x},${y}`).join(' ') + ` L ${pts[pts.length - 1][0]},${baseY} Z`;
+  SVG.appendChild(el('path', { d: areaD, fill: 'url(#ag)', 'clip-path': 'url(#cp)' }));
+
+  // Line
+  const lineD = 'M ' + pts.map(([x, y]) => `${x},${y}`).join(' L ');
+  SVG.appendChild(el('path', { d: lineD, fill: 'none', stroke: '#388bfd', 'stroke-width': '2.5', 'stroke-linejoin': 'round', 'stroke-linecap': 'round', 'clip-path': 'url(#cp)' }));
+
+  // Axis labels
+  SVG.appendChild(tx('Annual Gross Income', P.l - 58, P.t + CH / 2,
+    { 'text-anchor': 'middle', fill: '#8b949e', 'font-size': '11', transform: `rotate(-90,${P.l - 58},${P.t + CH / 2})` }));
+  SVG.appendChild(tx('Year', P.l + CW / 2, H - 6,
+    { 'text-anchor': 'middle', fill: '#8b949e', 'font-size': '11' }));
+
+  // Invisible drag overlay (must be last so it captures events)
+  SVG.appendChild(el('rect', { x: P.l, y: P.t, width: CW, height: CH, fill: 'transparent' }));
+}
+
+// ── Results ───────────────────────────────────────────────────────────────────
+function calcResults() {
+  const yrs = getYears();
+  const withTax = taxOn();
+  let nominal = 0, totalTax = 0, real = 0, realNet = 0;
+
+  yrs.forEach(y => {
+    const gross = incomes[y] ?? 0;
+    const tax   = calcTax(gross);
+    const net   = gross - tax;
+    const mult  = mults[y] ?? 1;
+    nominal  += gross;
+    totalTax += tax;
+    real     += gross * mult;
+    realNet  += net * mult;
+  });
+
+  const displayReal = withTax ? realNet : real;
+  const displayBase = withTax ? (nominal - totalTax) : nominal;
+
+  document.getElementById('r-nominal').textContent = fmtFull(nominal);
+  document.getElementById('r-real').textContent    = fmtFull(displayReal);
+  document.getElementById('r-avg').textContent     = yrs.length > 0 ? fmtFull(displayReal / yrs.length) : '—';
+
+  if (withTax) {
+    document.getElementById('l-nominal').textContent = 'Total Gross Earnings';
+    document.getElementById('n-nominal').textContent = 'Before tax';
+    document.getElementById('l-real').textContent    = 'Net in Today\'s Money';
+    document.getElementById('n-real').textContent    = 'After tax, inflation-adjusted to 2026';
+    document.getElementById('l-tax').textContent     = 'Est. Tax Paid (nominal)';
+    document.getElementById('r-tax').textContent     = fmtFull(totalTax);
+    document.getElementById('n-tax').textContent     = 'Income tax + NI/FICA (approx)';
+    document.getElementById('l-avg').textContent     = 'Avg Year Net (Real)';
+    document.getElementById('n-avg').textContent     = 'After tax, today\'s money';
+  } else {
+    document.getElementById('l-nominal').textContent = 'Total Gross Earnings';
+    document.getElementById('n-nominal').textContent = 'Actual pay received (gross)';
+    document.getElementById('l-real').textContent    = 'Total in Today\'s Money';
+    document.getElementById('n-real').textContent    = 'Inflation-adjusted to 2026';
+    document.getElementById('l-tax').textContent     = 'Inflation Added';
+    document.getElementById('r-tax').textContent     = nominal > 0 ? '+' + ((real / nominal - 1) * 100).toFixed(0) + '%' : '—';
+    document.getElementById('n-tax').textContent     = 'Real vs nominal difference';
+    document.getElementById('l-avg').textContent     = 'Avg Year (Real)';
+    document.getElementById('n-avg').textContent     = 'Per working year, today\'s money';
+  }
+}
+
+// ── Drag logic ────────────────────────────────────────────────────────────────
+function svgPt(e) {
+  const s = e.touches ? e.touches[0] : e;
+  const pt = SVG.createSVGPoint();
+  pt.x = s.clientX; pt.y = s.clientY;
+  return pt.matrixTransform(SVG.getScreenCTM().inverse());
+}
+
+function applyDrag(px, py) {
+  const yr  = yearOf(px);
+  const inc = incOf(py);
+
+  if (prevDrag && prevDrag.year !== yr) {
+    const [y0, i0, y1, i1] = prevDrag.year < yr
+      ? [prevDrag.year, prevDrag.inc, yr, inc]
+      : [yr, inc, prevDrag.year, prevDrag.inc];
+    for (let cy = y0; cy <= y1; cy++) {
+      if (cy < startYear || cy >= TODAY) continue;
+      const t = y1 === y0 ? 1 : (cy - y0) / (y1 - y0);
+      incomes[cy] = i0 + t * (i1 - i0);
+    }
+  } else {
+    if (yr >= startYear && yr < TODAY) incomes[yr] = inc;
+  }
+  prevDrag = { year: yr, inc };
+}
+
+function inChart(p) { return p.x >= P.l && p.x <= P.l + CW && p.y >= P.t && p.y <= P.t + CH; }
+
+SVG.addEventListener('mousedown', e => {
+  const p = svgPt(e);
+  if (!inChart(p)) return;
+  dragging = true; prevDrag = null;
+  applyDrag(p.x, p.y); draw(); calcResults();
+  e.preventDefault();
+});
+
+SVG.addEventListener('mousemove', e => {
+  const p = svgPt(e);
+  if (dragging) { applyDrag(p.x, p.y); draw(); calcResults(); }
+
+  // Tooltip
+  if (inChart(p)) {
+    const yr   = yearOf(p.x);
+    const nom  = incomes[yr] ?? 0;
+    const tax  = calcTax(nom);
+    const net  = nom - tax;
+    const mult = mults[yr] ?? 1;
+    const with_tax = taxOn();
+    const realVal = with_tax ? net * mult : nom * mult;
+    document.getElementById('tt-year').textContent = yr;
+    document.getElementById('tt-nom').textContent  = 'Gross: ' + fmtFull(nom);
+    const ttNet = document.getElementById('tt-net');
+    if (with_tax) {
+      ttNet.textContent = 'Net (after tax): ' + fmtFull(net);
+      ttNet.style.display = '';
+    } else {
+      ttNet.style.display = 'none';
+    }
+    document.getElementById('tt-real').textContent = "Today's value: " + fmtFull(realVal);
+    TT.style.display = 'block';
+    const flip = e.clientX > window.innerWidth * 0.65;
+    TT.style.left = (flip ? e.clientX - 195 : e.clientX + 14) + 'px';
+    TT.style.top  = Math.min(e.clientY - 10, window.innerHeight - 80) + 'px';
+  } else {
+    TT.style.display = 'none';
+  }
+  e.preventDefault();
+});
+
+SVG.addEventListener('mouseup',    () => { dragging = false; prevDrag = null; });
+SVG.addEventListener('mouseleave', () => { dragging = false; prevDrag = null; TT.style.display = 'none'; });
+
+SVG.addEventListener('touchstart', e => {
+  const p = svgPt(e);
+  if (!inChart(p)) return;
+  dragging = true; prevDrag = null;
+  applyDrag(p.x, p.y); draw(); calcResults();
+  e.preventDefault();
+}, { passive: false });
+
+SVG.addEventListener('touchmove', e => {
+  if (!dragging) return;
+  const p = svgPt(e);
+  applyDrag(p.x, p.y); draw(); calcResults();
+  e.preventDefault();
+}, { passive: false });
+
+SVG.addEventListener('touchend', () => { dragging = false; prevDrag = null; });
+
+// ── Setup & controls ──────────────────────────────────────────────────────────
+function setup(preserveIncomes = true) {
+  const newStart = Math.max(1960, Math.min(2025, parseInt(document.getElementById('startYear').value) || 1990));
+  currency  = document.getElementById('currency').value;
+  maxIncome = parseInt(document.getElementById('maxIncome').value);
+  mults     = buildMults(currency);
+
+  // Update scale select labels
+  const s = currency === 'GBP' ? '£' : '$';
+  document.querySelectorAll('#maxIncome option').forEach(o => {
+    o.text = s + parseInt(o.value).toLocaleString('en-GB');
+  });
+
+  if (!preserveIncomes || newStart !== startYear) {
+    // Preserve incomes that still fall in range, default-fill new years
+    const old = { ...incomes };
+    startYear = newStart;
+    const yrs = getYears();
+    incomes = {};
+    yrs.forEach((y, i) => {
+      incomes[y] = old[y] !== undefined ? old[y] : (22000 + (i / Math.max(1, yrs.length - 1)) * 28000);
+    });
+  } else {
+    startYear = newStart;
+  }
+
+  draw(); calcResults();
+}
+
+document.getElementById('startYear').addEventListener('change', () => setup(true));
+document.getElementById('currency').addEventListener('change',  () => {
+  setup(true);
+  document.getElementById('taxNote').textContent = currency === 'GBP'
+    ? 'UK income tax + NI (2024/25 rates)'
+    : 'US federal tax + FICA (2024 rates, single filer)';
+});
+document.getElementById('taxToggle').addEventListener('change', calcResults);
+document.getElementById('maxIncome').addEventListener('change', () => {
+  maxIncome = parseInt(document.getElementById('maxIncome').value);
+  draw(); calcResults();
+});
+document.getElementById('resetBtn').addEventListener('click', () => {
+  defaultCurve(); draw(); calcResults();
+});
+window.addEventListener('resize', draw);
+
+// ── Save / Load (localStorage) ────────────────────────────────────────────────
+const PREFIX = 'wie__';
+
+function listSaves() {
+  const names = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k && k.startsWith(PREFIX)) names.push(k.slice(PREFIX.length));
+  }
+  return names.sort((a, b) => a.localeCompare(b));
+}
+
+function refreshLoadSelect(selectName) {
+  const sel = document.getElementById('loadSelect');
+  const keep = selectName !== undefined ? selectName : sel.value;
+  sel.innerHTML = '<option value="">— saved profiles —</option>';
+  listSaves().forEach(name => {
+    const o = document.createElement('option');
+    o.value = name; o.textContent = name;
+    if (name === keep) o.selected = true;
+    sel.appendChild(o);
+  });
+}
+
+function flashMsg(msg, ok) {
+  const el = document.getElementById('saveMsg');
+  el.textContent = msg;
+  el.style.color = ok ? '#3fb950' : '#f85149';
+  clearTimeout(el._t);
+  el._t = setTimeout(() => { el.textContent = ''; }, 3000);
+}
+
+function saveProfile() {
+  const name = document.getElementById('saveName').value.trim();
+  if (!name) { flashMsg('Enter a profile name first', false); return; }
+  const data = { startYear, currency, maxIncome, incomes };
+  localStorage.setItem(PREFIX + name, JSON.stringify(data));
+  refreshLoadSelect(name);
+  flashMsg('Saved “' + name + '”', true);
+}
+
+function loadProfile() {
+  const name = document.getElementById('loadSelect').value;
+  if (!name) return;
+  const raw = localStorage.getItem(PREFIX + name);
+  if (!raw) { flashMsg('Save not found', false); return; }
+  try {
+    const data = JSON.parse(raw);
+    startYear = data.startYear ?? 1990;
+    currency  = data.currency  ?? 'GBP';
+    maxIncome = data.maxIncome ?? 100000;
+    incomes   = data.incomes   ?? {};
+    // Sync controls
+    document.getElementById('startYear').value = startYear;
+    document.getElementById('currency').value  = currency;
+    document.getElementById('maxIncome').value = maxIncome;
+    document.getElementById('saveName').value  = name;
+    mults = buildMults(currency);
+    const s = currency === 'GBP' ? '£' : '$';
+    document.querySelectorAll('#maxIncome option').forEach(o => {
+      o.text = s + parseInt(o.value).toLocaleString('en-GB');
+    });
+    document.getElementById('taxNote').textContent = currency === 'GBP'
+      ? 'UK income tax + NI (2024/25 rates)'
+      : 'US federal tax + FICA (2024 rates, single filer)';
+    draw(); calcResults();
+    flashMsg('Loaded “' + name + '”', true);
+  } catch (e) {
+    flashMsg('Failed to load profile', false);
+  }
+}
+
+function deleteProfile() {
+  const name = document.getElementById('loadSelect').value;
+  if (!name) return;
+  if (!confirm('Delete saved profile “' + name + '”?')) return;
+  localStorage.removeItem(PREFIX + name);
+  refreshLoadSelect('');
+  if (document.getElementById('saveName').value === name) {
+    document.getElementById('saveName').value = '';
+  }
+  flashMsg('Deleted “' + name + '”', false);
+}
+
+document.getElementById('saveBtn').addEventListener('click', saveProfile);
+document.getElementById('loadBtn').addEventListener('click', loadProfile);
+document.getElementById('deleteBtn').addEventListener('click', deleteProfile);
+
+// Load on Enter key in name field
+document.getElementById('saveName').addEventListener('keydown', e => {
+  if (e.key === 'Enter') saveProfile();
+});
+
+// ── Boot ──────────────────────────────────────────────────────────────────────
+mults = buildMults('GBP');
+defaultCurve();
+setup(true);
+refreshLoadSelect('');
+</script>
+</body>
+</html>
